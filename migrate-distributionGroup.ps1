@@ -8,7 +8,11 @@ DistinguishedName for an OU to place contact records. This OU should be excluded
 .PARAMETER AzureADSyncServer
 Name of on-prem Azure AD Synchronization server.
 .PARAMETER CloudCredential
+.PARAMETER CloundDomain
+Office 365 tenant domain tenant.mail.onmicrosoft.com
 .PARAMETER OnPremCredential
+.PARAMETER emailDomain
+Email domain domain.com
 .PARAMETER Stage
 Create placeholder staging group.
 .PARAMETER Sync
@@ -34,8 +38,12 @@ Param(
     [string]$AzureADSyncServer,
     [Parameter(Mandatory=$false)]
     [PSObject]$cloudCredential,
+    [Parameter(Mandatory=$true)]
+    [string]$cloudDomain,    
     [Parameter(Mandatory=$false)]
     [PSObject]$onPremCredential,
+    [Parameter(Mandatory=$true)]
+    [string]$onPremDomain,    
     [Parameter(Mandatory=$False)]
     [switch]$Stage,
     [Parameter(Mandatory=$False)]
@@ -100,10 +108,10 @@ if ($Stage.IsPresent -or $Sync.IsPresent) {
         if ($OldDG.ManagedBy) {
             $ManagedBy = $OldDG.ManagedBy | %{ Get-PrimarySmtpAddress $_ }
             if (!($ManagedBy)) {
-                $ManagedBy = Get-PrimarySmtpAddress -Name comis.administrator
+                $ManagedBy = Get-PrimarySmtpAddress -Name administrator
             }
         } else {
-            $ManagedBy = Get-PrimarySmtpAddress -Name comis.administrator
+            $ManagedBy = Get-PrimarySmtpAddress -Name administrator
         }
 
         if(!(Test-Path -Path $ExportDirectory )){
@@ -255,13 +263,13 @@ if ($Finalize.IsPresent) {
         }
 
         Write-Verbose "... Creating local contact record"
-        $ExternalSMTPAddress = $OldDG.PrimarySmtpAddress.Replace("@med.uvm.edu","@uvmcom.mail.onmicrosoft.com")
+        $ExternalSMTPAddress = $OldDG.PrimarySmtpAddress.Replace("@$emailDomain","@$cloudDomain")
         Do {
             New-MailContact `
                 -Name $OldDG.DisplayName `
                 -DisplayName $OldDG.DisplayName `
                 -ExternalEmailAddress $ExternalSMTPAddress `
-                -Alias $OldDG.PrimarySmtpAddress.Replace("@med.uvm.edu","") `
+                -Alias $OldDG.PrimarySmtpAddress.Replace("@emailDomain","") `
                 -OrganizationalUnit $ContactOU | Out-Null
 
             Start-Sleep -Seconds 15
@@ -295,22 +303,16 @@ if ($Finalize.IsPresent) {
 
     $OldAddresses = $OldDG.EmailAddresses
     $NewAddresses = $OldAddresses | ForEach {$_.Replace("X500","x500")}
-	$NewDisplayName = $TempDG.displayName
+    $NewDisplayName = $TempDG.displayName
     $NewDisplayName = ($NewDisplayName -creplace "[A-Z][a-z]|(?<!\s)\d{2,}"," $&").Trim()
     $NewDisplayName = $NewDisplayName -replace "^cloud-",""
-	$NewDisplayName = $NewDisplayName -replace "^(COM|MED) ",""
-	$NewDisplayName = $NewDisplayName -replace " (Department|List)$",""
+    $NewDisplayName = $NewDisplayName -replace " (Department|List)$",""
     $NewDisplayName = $NewDisplayName -replace "[\'\.]",""
-	$NewDisplayName = $NewDisplayName -replace "^ClassOf","Medical Students "
-	$NewDisplayName = $NewDisplayName -replace "[\-\,\&_]"," "
-	$NewDisplayName = $NewDisplayName -replace "\s{1,6}"," "
+    $NewDisplayName = $NewDisplayName -replace "[\-\,\&_]"," "
+    $NewDisplayName = $NewDisplayName -replace "\s{1,6}"," "
     $NewDisplayName = $NewDisplayName.Trim()
-    if ($NewDisplayName -match "^CNHS " -or $NewDisplayName -match "^UVM ") {
-        $NewDisplayName = $NewDisplayName + " List"
-    } else {
-	    $NewDisplayName = "LCOM " + $NewDisplayName + " List"
-    }
-    $NewAlias = $NewDisplayName.ToLower().Replace(" ",".") -replace "^lcom.",""
+    $NewDisplayName = "DL " + $NewDisplayName + " List"
+    $NewAlias = $NewDisplayName.ToLower().Replace(" ",".") -replace "^dl.",""
     $NewPrimarySmtpAddress = ($NewAddresses | Where-Object {$_ -clike "SMTP:*"}).Replace("SMTP:","")
 
     Set-DistributionGroup `
