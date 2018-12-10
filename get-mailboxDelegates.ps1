@@ -18,7 +18,7 @@ $delegates = @()
 foreach ($mailbox in $mailboxes) {
     Write-Progress -Activity "Searching each mailbox for delegates" -PercentComplete ($i / $mailboxes.count * 100) -CurrentOperation $mailbox.displayName
 
-    $delegates += Get-MailboxPermission $mailbox.SamAccountName | ?{ `
+    $delegates += Get-MailboxPermission $mailbox.SamAccountName | Where-Object { `
         $_.IsInherited -eq $False -and `
         $_.User -notlike "NT AUTHORITY\SELF" -and `
         $_.User -notlike "*\Exchange*" -and `
