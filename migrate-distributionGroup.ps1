@@ -160,7 +160,7 @@ if ($Stage.IsPresent -or $Sync.IsPresent) {
                 -Members $OldMembers | Out-Null
         }
 
-        while ((Get-DistributionGroup -Identity "cloud-$OldName" -ErrorAction SilentlyContinue) -eq $null) {
+        while ($null -eq (Get-DistributionGroup -Identity "cloud-$OldName" -ErrorAction SilentlyContinue)) {
             Write-Verbose "... Waiting to connect to distribution group"
             Start-Sleep -Seconds 3
         }
